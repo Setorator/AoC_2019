@@ -21,12 +21,13 @@ class IntCode:
         self.mem = np.zeros(self.program_len*20, dtype=np.int64)
         self.mem[0:self.program_len] = self.code
 
-        self.map = np.zeros((34, 37), dtype=str)
+        self.map = np.zeros((100, 100), dtype=str)
         self.intersections = {}
 
         self.code_cnt = 0
-        self.out = [0, 0, 0]
+        self.out = 0
         self.out_ind = [0, 0]
+        self.arg_i = 0
         self.num_blocks = 0
 
     def intersec(self, y_i, x_i):
@@ -35,7 +36,7 @@ class IntCode:
                 return True
         return False
 
-    def run(self):
+    def run(self, args):
 
         def addr(arg_i):
             if par_modes[arg_i] == 0:
@@ -60,16 +61,17 @@ class IntCode:
                 self.code_cnt += 4
 
             elif op_code == 3:
-                self.mem[addr(0)] = int(input())
+                self.mem[addr(0)] = ord(args[self.arg_i])
                 self.code_cnt += 2
+                self.arg_i += 1
 
             elif op_code == 4:
-                val = self.mem[addr(0)]
-                if val != 10:
-                    self.map[self.out_ind[0], self.out_ind[1]] = chr(self.mem[addr(0)])
+                self.out = self.mem[addr(0)]
+                if self.out != 10:
+                    self.map[self.out_ind[0], self.out_ind[1]] = chr(self.out)
                     self.out_ind[1] += 1
                 else:
-                    print(list(self.map[self.out_ind[0]]))
+                    print(''.join(map(str, self.map[self.out_ind[0]])))
                     self.out_ind[0] += 1
                     self.out_ind[1] = 0
 
@@ -106,14 +108,14 @@ class IntCode:
                 self.code_cnt += 2
 
             elif op_code == 99:
+                print("Total dust collected: {}".format(self.out))
                 self.out = None
                 break
             else:
                 print("Found value " + self.mem[self.code_cnt].__str__() + " at position " + self.code_cnt.__str__())
                 raise ModuleNotFoundError
 
-        print("Size: (Note empty line) {},{}".format(self.out_ind[0], self.out_ind[1]))
-
+        # Part 1
         for y in range(np.size(self.map, 0)-1):
             for x in range(np.size(self.map, 1)):
                 # check if intersection
@@ -129,4 +131,25 @@ class IntCode:
 
 if __name__ == '__main__':
     comp = IntCode()
-    comp.run()
+
+    # Part 2
+    comp.mem[0] = 2
+    args = ""
+
+    # Main movement
+    args += "A,A,B,C,B,C,B,C,C,A\n"
+
+    # Function A
+    args += "R,8,L,4,R,4,R,10,R,8\n"
+
+    # Function B
+    args += "L,12,L,12,R,8,R,8\n"
+
+    # Function C
+    args += "R,10,R,4,R,4\n"
+
+    # Video feed
+    args += "n\n"
+
+    # Send in all the arguments at once
+    comp.run(args)
