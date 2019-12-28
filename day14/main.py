@@ -10,55 +10,28 @@ def strip_int(val):
 
 
 if __name__ == '__main__':
+    used_ore = 0
+    created_fuel = 0
     reactions = {}
     available_chems = {}
-    used_ore = 0
 
-
-    def trigger_reac(reac):
+    def trigger_reac(reac, num):
         global used_ore
         for chem in reactions[reac]["chems"]:
             i, c = strip_int(chem)
 
             if c == "ORE":
-                used_ore += i
+                used_ore += i * num
                 break
 
             # Gather lower material if needed
-            while available_chems[c] < i:
-                trigger_reac(c)
+            while available_chems[c] < i * num:
+                trigger_reac(c, num)
 
             # When there is enough sub-material, perform reaction
-            available_chems[c] -= i
+            available_chems[c] -= i * num
         # Append amount to available-dict
-        available_chems[reac] += reactions[reac]["amount"]
-
-
-    def trigger_reac_without_ore(reac):
-        for chem in reactions[reac]["chems"]:
-            i, c = strip_int(chem)
-
-            if c == "ORE":
-                available_chems[reac] = -1
-                break
-
-            # Gather lower material if needed
-            while available_chems[c] < i:
-                if available_chems[c] == -1:
-                    if reac == "FUEL":
-                        print(available_chems["FUEL"])
-                        available_chems["FUEL"] = -1
-                    break
-                else:
-                    trigger_reac(c)
-
-            # When there is enough sub-material, perform reaction
-            if available_chems[c] != -1:
-                available_chems[c] -= i
-
-        # Append amount to available-dict
-        if available_chems[reac] != -1:
-            available_chems[reac] += reactions[reac]["amount"]
+        available_chems[reac] += reactions[reac]["amount"] * num
 
 
     with open("input.txt") as f:
@@ -70,20 +43,25 @@ if __name__ == '__main__':
     for chem in reactions:
         available_chems[chem] = 0
 
-    trigger_reac("FUEL")
+    trigger_reac("FUEL", 1)
+    created_fuel += 1
 
-    print("{} ORE used for 1 FUEL".format(used_ore))
+    print("{} ORE used for {} FUEL".format(used_ore, created_fuel))
 
     # Part 2
-    produced_fuel = 1000000000000 // used_ore
 
-    for chem in available_chems:
-        available_chems[chem] *= produced_fuel
+    max_ore = 1000000000000
 
-    available_chems["FUEL"] = produced_fuel
+    # Coarse calculations
+    while used_ore < max_ore * 0.9999:
+        trigger_reac("FUEL", 100)
+        created_fuel += 100
+        percentage = used_ore / max_ore
+        print("({}), Created {} fuel with a total of {} ore".format(percentage, created_fuel, used_ore))
 
-    print(available_chems["FUEL"])
-    while available_chems["FUEL"] != -1:
-        trigger_reac_without_ore("FUEL")
-        print(available_chems["FUEL"])
-    print(available_chems["FUEL"])
+    # More fine calculations
+    while used_ore < max_ore:
+        trigger_reac("FUEL", 1)
+        created_fuel += 1
+        percentage = used_ore / max_ore
+        print("({}), Created {} fuel with a total of {} ore".format(percentage, created_fuel, used_ore))
