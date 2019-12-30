@@ -1,5 +1,4 @@
 import numpy as np
-import threading
 import queue
 from copy import deepcopy
 
@@ -35,7 +34,7 @@ class Computer:
         self.idle_cnt = 0
         idle_stat[self.id] = False
 
-    def __call__(self):
+    def run(self):
 
         def addr(arg_i):
             if par_modes[arg_i] == 0:
@@ -61,7 +60,6 @@ class Computer:
 
             elif op_code == 3:
                 if self.arg_ind == -1:
-                    self.idle_cnt = 0
                     self.mem[addr(0)] = self.id
                     self.arg_ind = 0
 
@@ -83,21 +81,18 @@ class Computer:
                         self.args = None
                         self.arg_ind = 0
 
-                if self.idle_cnt > 100:
+                # If there has been no new messages for 3 iterations, set status to idle
+                if self.idle_cnt > 2:
                     idle_stat[self.id] = True
 
                 self.code_cnt += 2
+                break
 
             elif op_code == 4:
                 self.out[self.out_ind] = self.mem[addr(0)]
                 self.out_ind += 1
 
                 if self.out_ind == 3:
-
-                    # Part 1
-                    if self.out[0] == 255:
-                        print("For 255, X is {} and Y is {}".format(self.out[1], self.out[2]))
-
                     mess_queue[self.out[0]].put((self.out[1], self.out[2]))
                     print("Thread {} sent {} to thread {}".format(self.id, (self.out[1], self.out[2]), self.out[0]))
                     self.out_ind = 0
@@ -139,57 +134,46 @@ class Computer:
                 break
             else:
                 print("Found value " + self.mem[self.code_cnt].__str__() + " at position " + self.code_cnt.__str__())
-                print("Last op code was {}".format(self.last_op))
                 raise ModuleNotFoundError
-
-
-# Part 2
-def NAT():
-    last_sent = None
-    last_package = None
-    global idle_stat
-    done = False
-
-    while not done:
-        if not mess_queue[255].empty():
-            last_package = mess_queue[255].get()
-            print("255 got package {}".format(last_package))
-
-        # If all computers are set to idle (value True)
-        elif all(idle_stat) and last_package is not None and all(mess_queue[s].empty() for s in mess_queue):
-            if last_sent is not None and last_sent[1] == last_package[1]:
-                print("FOUND MATCH: {}-{}!".format(last_sent[1], last_package[1]))
-                done = True
-                break
-
-            mess_queue[0].put(last_package)
-
-            # Change stat of all computers to "non-idle"
-            idle_stat = [False] * 50
-
-            print("255 Sent {} to address 0".format(last_package))
-
-            last_sent = deepcopy(last_package)
-
 
 
 if __name__ == '__main__':
 
     comp_list = []
     mess_queue = {}
-    mess_queue[255] = queue.Queue()
-
-    # Part 2
     idle_stat = [False] * 50
-    nat_thread = threading.Thread(target=NAT)
-    nat_thread.start()
 
     # Init threads and message queues
-    for i in range(50):
-        mess_queue[i] = queue.Queue()
-        tmp = threading.Thread(target=Computer(i))
+    for c in range(50):
+        mess_queue[c] = queue.Queue()
+        tmp = Computer(c)
         comp_list.append(tmp)
 
-    # Start threads
-    for i in range(50):
-        comp_list[i].start()
+    mess_queue[255] = queue.Queue()
+    finished = False
+    last_sent = None
+    last_received = None
+
+    while not finished:
+
+        # Perform one iteration of computers
+        for c in comp_list:
+            c.run()
+
+        # Check for messages to NAT
+        if not mess_queue[255].empty():
+            last_received = mess_queue[255].get()
+
+        # If all computers are set to idle (value True)
+        elif all(idle_stat) and last_received is not None:
+            if last_sent is not None and last_sent[1] == last_received[1]:
+                print("FOUND MATCH:{}!".format(last_received[1]))
+                finished = True
+                break
+
+            idle_stat = [False] * 50
+
+            mess_queue[0].put(last_received)
+            last_sent = deepcopy(last_received)
+            # First print of this line is answer for part 1
+            print("Sent package {} to address 0".format(last_received))
